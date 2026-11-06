@@ -1,0 +1,22 @@
+{
+	# Docker publishes Caddy's internal 443 as host port 8443. Disable HTTP/3
+	# so browsers do not follow an Alt-Svc advertisement to host UDP port 443.
+	# Windows clients commonly omit SNI when connecting to a literal IP address;
+	# select the certificate issued for MOODLE_HOST in that case.
+	default_sni {$MOODLE_HOST}
+	servers {
+		protocols h1 h2
+	}
+}
+
+https://{$MOODLE_HOST}:443 {
+	tls internal
+	reverse_proxy moodle:8080 {
+		# Make Moodle's reverse-proxy guard see the client-facing HTTPS request.
+		header_up X-Forwarded-For {remote_host}
+		# Moodle requires the upstream Host to remain its internal address when
+		# reverseproxy is enabled; the public URL is supplied by $CFG->wwwroot.
+		header_up Host moodle:8080
+		header_up X-Forwarded-Proto https
+	}
+}

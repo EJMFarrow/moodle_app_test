@@ -1,0 +1,14 @@
+{
+  "folders": [
+    {
+      "name": "STACK (remote)",
+      "uri": "vscode-remote://ssh-remote+stack-workbench/workspace/stack"
+    }
+  ],
+  "settings": {
+    "remote.SSH.defaultExtensions": ["openai.chatgpt"],
+    "remote.extensionKind": {
+      "openai.chatgpt": ["workspace"]
+    }
+  }
+}

@@ -1,0 +1,136 @@
+name: ${COMPOSE_PROJECT_NAME:-stack-mobile}
+
+services:
+  db:
+    image: mariadb:11.4
+    # Moodle's environment checker supports this broadly compatible UTF-8
+    # collation (rather than MariaDB 11's newer UCA 14 default).
+    command: ["--character-set-server=utf8mb4", "--collation-server=utf8mb4_unicode_ci"]
+    environment:
+      MARIADB_DATABASE: ${MYSQL_DATABASE}
+      MARIADB_USER: ${MYSQL_USER}
+      MARIADB_PASSWORD: ${MYSQL_PASSWORD}
+      MARIADB_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+    volumes:
+      - mariadb-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  moodle:
+    image: stack-mobile-moodle:local
+    build:
+      context: infra/moodle
+    depends_on:
+      db:
+        condition: service_healthy
+      goemaxima:
+        condition: service_started
+    volumes:
+      - ./moodle:/var/www/moodle:ro
+      - ./stack:/var/www/moodle/public/question/type/stack:ro
+      - moodle-data:/var/moodledata
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /var/run/apache2
+      - /var/lock/apache2
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8080/login/index.php >/dev/null"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+
+  moodle-installer:
+    image: stack-mobile-moodle:local
+    build:
+      context: infra/moodle
+    profiles: ["tools"]
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./moodle:/var/www/moodle
+      - ./stack:/var/www/moodle/public/question/type/stack
+      - moodle-data:/var/moodledata
+    entrypoint: ["php"]
+
+  caddy:
+    image: caddy:2.9-alpine
+    depends_on:
+      moodle:
+        condition: service_healthy
+    environment:
+      MOODLE_HOST: ${MOODLE_HOST}
+    ports:
+      - "8443:443"
+    volumes:
+      - ./infra/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+
+  # Version-matched remote Maxima service recommended by STACK for Windows.
+  # It is reachable only on the compose network, never from the host.
+  goemaxima:
+    image: mathinstitut/goemaxima:2026101500-latest
+    read_only: true
+    cap_add:
+      - SETGID
+      - SETUID
+    cap_drop:
+      - ALL
+    tmpfs:
+      - /tmp
+    environment:
+      GOEMAXIMA_QUEUE_LEN: 16
+    expose:
+      - "8080"
+
+  stack-workbench:
+    build:
+      context: infra/workbench
+    depends_on:
+      workbench-init:
+        condition: service_completed_successfully
+    ports:
+      - "127.0.0.1:${WORKBENCH_SSH_PORT:-2223}:2222"
+    volumes:
+      - ./stack:/workspace/stack
+      - ./moodle:/opt/moodle:ro
+      - workbench-home:/home/stackdev
+    read_only: true
+    cap_add:
+      # Required only for SSH to initialise the named home volume and switch
+      # authenticated sessions to the unprivileged stackdev account. OpenSSH
+      # also uses a short-lived /run/sshd privilege-separation chroot.
+      - CHOWN
+      - SETGID
+      - SETUID
+      - SYS_CHROOT
+    cap_drop: ["ALL"]
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 512
+    mem_limit: 2g
+    tmpfs:
+      - /tmp:mode=1777
+      - /run
+      - /var/run
+
+  # Initialises the persistent editor/Codex home before the hardened SSH
+  # service starts. The workbench itself never receives broad filesystem access.
+  workbench-init:
+    build:
+      context: infra/workbench
+    entrypoint: ["/bin/sh", "-c", "mkdir -p /home/stackdev/.codex && chown -R 1000:1000 /home/stackdev"]
+    volumes:
+      - workbench-home:/home/stackdev
+
+volumes:
+  mariadb-data:
+  moodle-data:
+  caddy-data:
+  caddy-config:
+  workbench-home:

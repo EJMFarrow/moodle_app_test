@@ -1,0 +1,21 @@
+# Locally-cloned upstream sources and runtime state. Bootstrap recreates these;
+# they can contain upstream Git metadata, credentials, certificates, and data.
+/moodle/
+/stack/
+/moodleapp/
+/local/
+/tools/
+/.env
+
+# Local editor state and diagnostic/build residue.
+.idea/
+.vs/
+.vscode/*.log
+.DS_Store
+Thumbs.db
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.tmp
+*.bak

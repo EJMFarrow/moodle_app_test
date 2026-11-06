@@ -1,0 +1,4 @@
+{
+  "remote.SSH.configFile": "C:\\MoodleApp\\.vscode\\ssh-config",
+  "remote.SSH.defaultExtensions": ["openai.chatgpt"]
+}

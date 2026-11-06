@@ -1,0 +1,12 @@
+# Select this file as VS Code's Remote SSH configuration, then connect to
+# "stack-workbench". Password: stackdev (local development only).
+Host stack-workbench
+    HostName 127.0.0.1
+    Port 2223
+    User stackdev
+    PreferredAuthentications password
+    PubkeyAuthentication no
+    # The SSH daemon is rebuilt locally and has no persistent host-key volume.
+    # This loopback-only target must therefore not retain old host keys.
+    StrictHostKeyChecking no
+    UserKnownHostsFile /dev/null
